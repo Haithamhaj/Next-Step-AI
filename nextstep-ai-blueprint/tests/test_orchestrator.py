@@ -31,14 +31,18 @@ async def test_analyze_flow():
             mock_synthesis.return_value = "# Report\nنتائج"
             with patch("agents.synthesis.generate_contextual_instructions") as mock_ci:
                 mock_ci.return_value = "You are an expert. Be specific."
+                with patch("agents.research.research_topic") as mock_research:
+                    mock_research.return_value = {"discoveries": [], "research_summary": "", "search_queries_used": []}
 
-                result = await orchestrator.analyze_and_report()
-                report = result[0]
-                contextual_instructions = result[1]
+                    result = await orchestrator.analyze_and_report()
+                    report = result[0]
+                    contextual_instructions = result[1]
+                    research_data = result[2]
 
-                assert report is not None
-                assert "نتائج" in report or "findings" in report.lower()
-                assert contextual_instructions is not None
+                    assert report is not None
+                    assert "نتائج" in report or "findings" in report.lower()
+                    assert contextual_instructions is not None
+                    assert research_data is not None
             
             pending = memory.get_pending_conversations()
             assert len(pending) == 0

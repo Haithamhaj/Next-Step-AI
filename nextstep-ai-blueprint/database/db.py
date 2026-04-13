@@ -131,3 +131,24 @@ def get_instruction_by_report(report_id):
     row = cur.fetchone()
     conn.close()
     return dict(row) if row else None
+
+def insert_research_result(research_id, report_id, topic_summary, discoveries, search_queries, research_summary):
+    import json
+    conn = get_connection()
+    timestamp = __import__('datetime').datetime.now(__import__('datetime').timezone.utc).isoformat()
+    discoveries_json = json.dumps(discoveries, ensure_ascii=False) if isinstance(discoveries, list) else discoveries
+    queries_json = json.dumps(search_queries, ensure_ascii=False) if isinstance(search_queries, list) else search_queries
+    conn.execute(
+        "INSERT INTO research_results (id, report_id, timestamp, topic_summary, discoveries, search_queries, research_summary) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (research_id, report_id, timestamp, topic_summary, discoveries_json, queries_json, research_summary)
+    )
+    conn.commit()
+    conn.close()
+    return research_id
+
+def get_research_by_report(report_id):
+    conn = get_connection()
+    cur = conn.execute("SELECT * FROM research_results WHERE report_id = ?", (report_id,))
+    row = cur.fetchone()
+    conn.close()
+    return dict(row) if row else None

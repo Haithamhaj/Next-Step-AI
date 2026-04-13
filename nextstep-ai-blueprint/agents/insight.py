@@ -10,7 +10,7 @@ def load_prompt(filename: str) -> str:
     with open(path, "r", encoding="utf-8") as f:
         return f.read()
 
-def analyze_conversations(conversations_block: str, profile: str, lang: str = "ar") -> dict:
+def analyze_conversations(conversations_block: str, profile: str, lang: str = "ar", discoveries: list = None) -> dict:
     if not ANTHROPIC_API_KEY or "-key-" in ANTHROPIC_API_KEY:
         pass 
 
@@ -20,6 +20,25 @@ def analyze_conversations(conversations_block: str, profile: str, lang: str = "a
     
     user_prompt = user_prompt_template.replace("{conversations_block}", conversations_block)
     user_prompt = user_prompt.replace("{user_profile}", profile)
+
+    # Inject discoveries block if provided
+    discoveries = discoveries or []
+    if discoveries:
+        discoveries_lines = []
+        for d in discoveries:
+            title = d.get("title", "Unknown")
+            dtype = d.get("type", "concept")
+            relevance = d.get("relevance", "")
+            suggested_angle = d.get("suggested_angle", "")
+            source = d.get("source", "")
+            line = f"- {title} ({dtype}): {relevance}"
+            if suggested_angle:
+                line += f" | Suggested angle: {suggested_angle}"
+            if source:
+                line += f" | Source: {source}"
+            discoveries_lines.append(line)
+        discoveries_block = "\n".join(discoveries_lines)
+        user_prompt += f"\n\n## External Discoveries (Research Agent findings)\nThese are tools, standards, and concepts found outside the conversations that are directly relevant to the topic. Use these to generate ALIGNMENT findings — do not ignore them.\n\n{discoveries_block}\n"
     
     client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
     last_error = "unknown"

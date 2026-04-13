@@ -13,6 +13,7 @@ from orchestrator import analyze_and_report
 import anthropic.resources.messages
 
 RAW_INSIGHT_TEXT = None
+RAW_RESEARCH_DATA = None
 
 _orig_msg_create = anthropic.resources.messages.Messages.create
 
@@ -57,7 +58,21 @@ async def run_tests():
     print("══════════════════════════════════════════════════")
     RAW_INSIGHT_TEXT = None
     with patch("anthropic.resources.messages.Messages.create", mock_msg_create):
-        report, contextual_instructions = await analyze_and_report()
+        with patch("agents.research.research_topic") as mock_research:
+            mock_research.return_value = {
+                "discoveries": [
+                    {
+                        "title": "RDF-star",
+                        "type": "standard",
+                        "relevance": "Modern standard for expressing statements about statements in knowledge graphs",
+                        "source": "W3C",
+                        "suggested_angle": "Could simplify TKG conflict resolution with built-in reification"
+                    }
+                ],
+                "research_summary": "Found W3C RDF-star standard relevant to Temporal Knowledge Graphs",
+                "search_queries_used": ["temporal knowledge graph standards", "TKG tools"]
+            }
+            report, contextual_instructions, research_data = await analyze_and_report()
 
     print("── Insight Agent RAW JSON Response ──")
     print(RAW_INSIGHT_TEXT)
@@ -67,6 +82,9 @@ async def run_tests():
 
     print("\n── Contextual Instructions ──")
     print(contextual_instructions)
+
+    print("\n── Research Data ──")
+    print(research_data)
     
     print("\n══════════════════════════════════════════════════")
     print("TEST 5: Verify conversations marked as analyzed")
@@ -88,7 +106,9 @@ async def run_tests():
     
     RAW_INSIGHT_TEXT = None
     with patch("anthropic.resources.messages.Messages.create", mock_msg_create):
-        report2, ci2 = await analyze_and_report()
+        with patch("agents.research.research_topic") as mock_research:
+            mock_research.return_value = {"discoveries": [], "research_summary": "No relevant findings", "search_queries_used": []}
+            report2, ci2, research2 = await analyze_and_report()
 
     print("\n── Insight Agent RAW JSON for Round 2 ──")
     print(RAW_INSIGHT_TEXT)
@@ -98,6 +118,9 @@ async def run_tests():
 
     print("\n── Contextual Instructions Round 2 ──")
     print(ci2)
+
+    print("\n── Research Data Round 2 ──")
+    print(research2)
     
     pending_after = memory.get_pending_conversations()
     print(f"\nRemaining Pending at end: {len(pending_after)}")

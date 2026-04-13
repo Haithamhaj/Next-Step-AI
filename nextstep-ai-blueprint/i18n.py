@@ -50,6 +50,8 @@ TRANSLATIONS = {
         "no_reports": "لا توجد تقارير سابقة.",
         "contextual_instructions_heading": "تعليمات السياق",
         "contextual_instructions_tip": "الصق هذا النص في بداية محادثتك الجديدة قبل استخدام البروبمتات الجاهزة",
+        "research_discoveries_heading": "ما وجده وكيل البحث",
+        "no_discoveries": "لم يتم العثور على اكتشافات خارجية",
 
         # Insights page
         "page_insights_title": "متصفح الملاحظات",
@@ -138,6 +140,8 @@ TRANSLATIONS = {
         "no_reports": "No past reports yet.",
         "contextual_instructions_heading": "Contextual Instructions",
         "contextual_instructions_tip": "Paste this at the start of your new AI conversation before using the Ready Prompts",
+        "research_discoveries_heading": "Research Agent Discoveries",
+        "no_discoveries": "No external discoveries found",
 
         # Insights page
         "page_insights_title": "Insights Browser",

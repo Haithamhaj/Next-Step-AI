@@ -61,3 +61,13 @@ CREATE TABLE IF NOT EXISTS contextual_instructions (
     topic_summary   TEXT,
     lang            TEXT
 );
+
+CREATE TABLE IF NOT EXISTS research_results (
+    id              TEXT PRIMARY KEY,
+    report_id       TEXT,
+    timestamp       TEXT NOT NULL,
+    topic_summary   TEXT,
+    discoveries     TEXT,
+    search_queries  TEXT,
+    research_summary TEXT
+);

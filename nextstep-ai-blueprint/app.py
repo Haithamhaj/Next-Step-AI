@@ -224,6 +224,41 @@ def conversations_page():
 # ══════════════════════════════════════════════════════════════
 # PAGE 2 — ANALYSIS
 # ══════════════════════════════════════════════════════════════
+def _render_research_discoveries(research_data: dict):
+    """Render Research Agent discoveries in a collapsible section."""
+    if not research_data:
+        return
+
+    discoveries = research_data.get("discoveries", [])
+    research_summary = research_data.get("research_summary", "")
+
+    expander_label = t("research_discoveries_heading", lang)
+    with st.expander(expander_label):
+        if research_summary:
+            st.caption(research_summary)
+
+        if not discoveries:
+            st.info(t("no_discoveries", lang))
+            return
+
+        import json
+        for d in discoveries:
+            title = d.get("title", "")
+            dtype = d.get("type", "concept")
+            relevance = d.get("relevance", "")
+            suggested_angle = d.get("suggested_angle", "")
+            source = d.get("source", "")
+
+            with st.container(border=True):
+                st.markdown(f"**{title}** `{dtype}`")
+                if relevance:
+                    st.markdown(f"- {relevance}")
+                if suggested_angle:
+                    st.markdown(f"- {suggested_angle}")
+                if source:
+                    st.caption(source)
+
+
 def analysis_page():
     st.title(t("page_analysis_title", lang))
 
@@ -234,7 +269,7 @@ def analysis_page():
 
     if st.button(t("btn_analyze", lang), type="primary", use_container_width=True, disabled=(n == 0)):
         with st.spinner(t("spinner_analyzing", lang)):
-            report, contextual_instructions = asyncio.run(analyze_and_report(lang=lang))
+            report, contextual_instructions, research_data = asyncio.run(analyze_and_report(lang=lang))
         st.success(t("analysis_done", lang))
         st.markdown(report)
 
@@ -244,6 +279,9 @@ def analysis_page():
             st.caption(t("contextual_instructions_tip", lang))
             with st.container(border=True):
                 st.code(contextual_instructions, language="markdown")
+
+        # Research Agent Discoveries
+        _render_research_discoveries(research_data)
     elif n == 0:
         st.warning(t("no_pending", lang))
 
@@ -263,23 +301,42 @@ def analysis_page():
             with open(path, "r", encoding="utf-8") as f:
                 st.markdown(f.read())
 
-            # Load paired contextual instructions by matching on date prefix
+            # Load paired contextual instructions and research by matching on date prefix
             date_prefix = sel.replace("report_", "").replace(".md", "")
             conn = db.get_connection()
-            cur = conn.execute(
+            ci_row = conn.execute(
                 "SELECT ci.content FROM contextual_instructions ci "
                 "JOIN daily_reports dr ON ci.report_id = dr.id "
                 "WHERE dr.date = ?",
                 (date_prefix,)
-            )
-            row = cur.fetchone()
+            ).fetchone()
+
+            rr_row = conn.execute(
+                "SELECT rr.discoveries, rr.research_summary FROM research_results rr "
+                "JOIN daily_reports dr ON rr.report_id = dr.id "
+                "WHERE dr.date = ?",
+                (date_prefix,)
+            ).fetchone()
             conn.close()
-            if row:
+
+            if ci_row:
                 st.markdown("---")
                 st.subheader(t("contextual_instructions_heading", lang))
                 st.caption(t("contextual_instructions_tip", lang))
                 with st.container(border=True):
-                    st.code(row["content"], language="markdown")
+                    st.code(ci_row["content"], language="markdown")
+
+            if rr_row:
+                import json
+                try:
+                    past_discoveries = json.loads(rr_row["discoveries"]) if rr_row["discoveries"] else []
+                except Exception:
+                    past_discoveries = []
+                past_research = {
+                    "discoveries": past_discoveries,
+                    "research_summary": rr_row["research_summary"] or ""
+                }
+                _render_research_discoveries(past_research)
 
 
 # ══════════════════════════════════════════════════════════════
@@ -378,7 +435,7 @@ def settings_page():
         if st.button(t("btn_clear", lang), type="primary"):
             # 1. Clear all DB tables
             conn = db.get_connection()
-            for tbl in ["conversations", "canonical_units", "insights", "daily_reports", "contextual_instructions"]:
+            for tbl in ["conversations", "canonical_units", "insights", "daily_reports", "contextual_instructions", "research_results"]:
                 conn.execute(f"DELETE FROM {tbl}")
             conn.commit()
             conn.close()

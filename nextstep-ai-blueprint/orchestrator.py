@@ -5,14 +5,15 @@ from datetime import datetime, timezone
 
 from config import PROFILES_DIR, REPORTS_DIR
 from agents import memory, insight, synthesis
+from agents import research
 import database.db as db
 
 async def analyze_and_report(lang: str = "ar") -> tuple:
     pending = memory.get_pending_conversations()
     if not pending:
         if lang == "ar":
-            return "لا توجد محادثات قيد الانتظار للتحليل.", ""
-        return "No conversations pending analysis.", ""
+            return "لا توجد محادثات قيد الانتظار للتحليل.", "", {}
+        return "No conversations pending analysis.", "", {}
 
     profile_path = os.path.join(PROFILES_DIR, "founder.md")
     if os.path.exists(profile_path):
@@ -54,8 +55,15 @@ async def analyze_and_report(lang: str = "ar") -> tuple:
                 "\n\n...[TRUNCATED — conversation too large even after compression]"
             combined = build_combined(convs_for_analysis)
 
+    # ── Research Agent: discover external tools/standards before insight ──
+    topic_summary_raw = combined[:500]
+    research_data = await asyncio.to_thread(
+        research.research_topic, topic_summary_raw, combined, profile, lang
+    )
+    discoveries = research_data.get("discoveries", [])
+
     # ── FIX 1: Call insight agent ONCE with the full combined block ──
-    analysis_data = await asyncio.to_thread(insight.analyze_conversations, combined, profile, lang)
+    analysis_data = await asyncio.to_thread(insight.analyze_conversations, combined, profile, lang, discoveries)
 
     conv_ids = [c["id"] for c in convs_for_analysis]
 
@@ -64,7 +72,7 @@ async def analyze_and_report(lang: str = "ar") -> tuple:
         return (
             f"⚠️ فشل تحليل {len(convs_for_analysis)} محادثة بسبب قيود Anthropic: "
             f"`{error_msg}`. يرجى الانتظار لمدة دقيقة ثم المحاولة مجدداً."
-        ), ""
+        ), "", {}
 
     all_findings = analysis_data.get("findings", [])
     session_summary = analysis_data.get("session_summary", "")
@@ -101,6 +109,15 @@ async def analyze_and_report(lang: str = "ar") -> tuple:
         str(uuid.uuid4()), report_id, contextual_instructions, session_summary, lang
     )
 
+    # ── Store Research Results ──
+    db.insert_research_result(
+        str(uuid.uuid4()), report_id,
+        session_summary,
+        discoveries,
+        research_data.get("search_queries_used", []),
+        research_data.get("research_summary", "")
+    )
+
     # ── FIX 3: Pass conversation IDs to every stored insight ──
     for finding in all_findings:
         memory.store_insight(finding, report_id, conv_ids)
@@ -109,4 +126,4 @@ async def analyze_and_report(lang: str = "ar") -> tuple:
     with open(os.path.join(REPORTS_DIR, f"report_{date_str}.md"), "w", encoding="utf-8") as f:
         f.write(report_content)
 
-    return report_content, contextual_instructions
+    return report_content, contextual_instructions, research_data
