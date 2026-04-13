@@ -1,0 +1,106 @@
+══════════════════════════════════════════════════
+TEST 1: Add a conversation via paste
+══════════════════════════════════════════════════
+Added ID: badb44a8-0730-4f9a-97de-e36c47bd5b01
+Status: pending
+Total Pending: 1
+
+══════════════════════════════════════════════════
+TEST 2: Add a second conversation
+══════════════════════════════════════════════════
+Added ID: ab993eb2-faa6-48da-8bec-1eabc66fb809
+Total Pending: 2
+
+══════════════════════════════════════════════════
+TEST 3 & 4: Analyze All Pending & Verify Report
+══════════════════════════════════════════════════
+── Insight Agent RAW JSON Response ──
+```json
+{
+    "has_insight": true,
+    "session_summary": "The user explored Temporal Knowledge Graph fundamentals and conflict resolution across two separate conversations, getting basic structural information (SPOT format) and one conflict resolution approach (versioning schemas).",
+    "angles": [
+        {
+            "type": "informational",
+            "content": "Critical TKG implementation decisions are missing: temporal granularity (event-based vs interval-based time), query complexity implications, and storage architecture trade-offs between graph databases vs time-series databases",
+            "evidence": "Both conversations provided surface-level answers without addressing the fundamental architectural decisions that determine TKG feasibility and performance",
+            "conversations_referenced": ["TKG Basics", "TKG Conflicts"],
+            "impact": "high"
+        },
+        {
+            "type": "complementary",
+            "content": "No discussion of TKG validation and testing strategies - how to verify temporal consistency, detect circular temporal dependencies, or validate time-sensitive inferences",
+            "evidence": "User got structural format and conflict resolution but no guidance on ensuring the TKG actually works correctly over time",
+            "conversations_referenced": ["TKG Basics", "TKG Conflicts"],
+            "impact": "high"
+        },
+        {
+            "type": "pattern",
+            "content": "User is collecting architectural components (SPOT format, versioning) without exploring the integration complexity between them",
+            "evidence": "Two separate conversations addressing different TKG aspects without connecting how temporal formatting and conflict resolution interact in practice",
+            "conversations_referenced": ["TKG Basics", "TKG Conflicts"],
+            "impact": "medium"
+        }
+    ],
+    "ready_questions": [
+        "What are the performance implications of different temporal granularities in TKG queries, and how does this affect my choice between event-based vs interval-based time representation?",
+        "How do versioning schemas for conflict resolution interact with temporal queries - can I query across versions or does each version create a separate temporal timeline?",
+        "What's the minimal viable TKG implementation I can build to test temporal reasoning before committing to a full architecture?"
+    ],
+    "skip_reason": null
+}
+```
+
+── Final Report ──
+# النتائج الرئيسية / Key Findings
+
+- **Critical TKG Implementation Decisions**  
+  Key architectural decisions such as temporal granularity, query complexity, and storage architecture (graph vs. time-series databases) were not addressed in the user's exploration of Temporal Knowledge Graphs (TKG). These decisions are crucial for determining the feasibility and performance of a TKG.
+
+- **Lack of Validation and Testing Strategies**  
+  There was no discussion on how to verify temporal consistency, detect circular temporal dependencies, or validate time-sensitive inferences within TKGs. This is critical for ensuring the TKG functions correctly over time.
+
+- **Integration Complexity Overlooked**  
+  The user is focusing on collecting architectural components without considering the integration complexities between them, such as how SPOT format and versioning schemas interact.
+
+# أسئلة جاهزة / Ready Questions
+
+- What are the performance implications of different temporal granularities in TKG queries, and how does this affect my choice between event-based vs interval-based time representation?
+- How do versioning schemas for conflict resolution interact with temporal queries - can I query across versions or does each version create a separate temporal timeline?
+- What's the minimal viable TKG implementation I can build to test temporal reasoning before committing to a full architecture?
+
+# إحصائيات / Stats
+
+- Interactions today: 2
+- Insights generated: 3
+- Insights engaged with: 0/3 (0%)
+- Topics covered: Temporal Knowledge Graphs, Conflict Resolution
+- Alerts triggered: 0
+
+══════════════════════════════════════════════════
+TEST 5: Verify conversations marked as analyzed
+══════════════════════════════════════════════════
+Conv 1 Status: analyzed
+Conv 2 Status: analyzed
+Remaining Pending: 0
+
+══════════════════════════════════════════════════
+TEST 6: Add a third conversation and analyze again
+══════════════════════════════════════════════════
+Pending before new analysis: 1 (should be 1)
+
+── Insight Agent RAW JSON for Round 2 ──
+```json
+{
+    "has_insight": false,
+    "session_summary": "User requested a single joke from Gemini, which was cut off mid-delivery.",
+    "angles": [],
+    "ready_questions": [],
+    "skip_reason": "Single trivial interaction with no substantive content to analyze - incomplete joke request provides no meaningful patterns, gaps, or insights about the user's work or thinking"
+}
+```
+
+── Final Report Round 2 ──
+لا توجد نتائج مهمة للتحليل — No significant findings.
+
+Remaining Pending at end: 0

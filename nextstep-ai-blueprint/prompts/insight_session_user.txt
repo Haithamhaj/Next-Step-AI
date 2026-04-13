@@ -1,0 +1,12 @@
+## Conversations to Analyze
+
+{conversations_block}
+
+## User Profile
+
+{user_profile}
+
+Analyze ALL conversations below as a connected set.
+Look for patterns, contradictions, and missing angles that
+appear across conversations — not just within each one.
+Apply the anti-filler check. Return JSON only.

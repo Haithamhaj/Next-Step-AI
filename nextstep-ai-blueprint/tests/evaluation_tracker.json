@@ -1,0 +1,19 @@
+[
+  {
+    "interaction_id": 1,
+    "date": "2026-04-15",
+    "query": "template query",
+    "query_type": "creative",
+    "model_used": "claude",
+    "base_answer_quality": 4,
+    "insight_generated": true,
+    "insight_type": "informational",
+    "insight_content": "template content",
+    "routing_class": "C",
+    "routing_action": "queue_report",
+    "user_reaction": "engaged",
+    "quality_score": 4,
+    "changed_next_question": true,
+    "notes": "template notes"
+  }
+]
