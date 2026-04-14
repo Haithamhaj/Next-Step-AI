@@ -9,6 +9,7 @@ import database.db as db
 from orchestrator import analyze_and_report
 import agents.memory as memory
 from i18n import t
+from maps.map_builder import build_maps_context
 
 st.set_page_config(
     page_title="Next-Step AI",
@@ -92,6 +93,11 @@ section[data-testid="stSidebar"] {{
     display: inline-block;
     margin-top: 6px;
 }}
+
+/* Calibration badges */
+.badge-flagged {{ background: #2d1b00; color: #f59e0b; padding: 2px 8px; border-radius: 12px; font-size: 12px; white-space: nowrap; }}
+.badge-pending {{ background: #3b1500; color: #fb923c; padding: 2px 8px; border-radius: 12px; font-size: 12px; white-space: nowrap; }}
+.badge-weakened {{ background: #1e2130; color: #6b7280; padding: 2px 8px; border-radius: 12px; font-size: 12px; white-space: nowrap; }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -120,6 +126,7 @@ with st.sidebar:
             t("nav_conversations", lang),
             t("nav_analysis", lang),
             t("nav_insights", lang),
+            t("nav_maps", lang),
             t("nav_settings", lang),
         ],
         label_visibility="collapsed"
@@ -226,22 +233,31 @@ def conversations_page():
 # ══════════════════════════════════════════════════════════════
 def _render_research_discoveries(research_data: dict):
     """Render Research Agent discoveries in a collapsible section."""
-    if not research_data:
+    expander_label = t("research_discoveries_heading", lang)
+    
+    # If no research_data or no discoveries list, show fallback inside the expander
+    if not research_data or not research_data.get("discoveries"):
+        with st.expander(expander_label):
+            if lang == "ar":
+                st.info("لم يعثر وكيل البحث على اكتشافات خارجية في هذا التحليل")
+            else:
+                st.info("Research Agent found no external discoveries in this analysis")
         return
 
     discoveries = research_data.get("discoveries", [])
     research_summary = research_data.get("research_summary", "")
 
-    expander_label = t("research_discoveries_heading", lang)
     with st.expander(expander_label):
         if research_summary:
             st.caption(research_summary)
 
         if not discoveries:
-            st.info(t("no_discoveries", lang))
+            if lang == "ar":
+                st.info("لم يعثر وكيل البحث على اكتشافات خارجية في هذا التحليل")
+            else:
+                st.info("Research Agent found no external discoveries in this analysis")
             return
 
-        import json
         for d in discoveries:
             title = d.get("title", "")
             dtype = d.get("type", "concept")
@@ -259,6 +275,50 @@ def _render_research_discoveries(research_data: dict):
                     st.caption(source)
 
 
+def _render_ensemble(ensemble_data: dict):
+    """Render Domain Specialist Analysis in a collapsible section."""
+    if not ensemble_data:
+        with st.expander(t("ensemble_heading", lang)):
+            st.info(t("ensemble_not_run", lang))
+        return
+
+    completion = ensemble_data.get("completion_findings", [])
+    alignment = ensemble_data.get("alignment_findings", [])
+    contradiction = ensemble_data.get("contradiction_findings", [])
+
+    if not any([completion, alignment, contradiction]):
+        with st.expander(t("ensemble_heading", lang)):
+            st.info(t("ensemble_not_run", lang))
+        return
+
+    with st.expander(t("ensemble_heading", lang)):
+        if completion:
+            st.markdown(f"**{t('ensemble_missing', lang)}:**")
+            for f in completion:
+                st.markdown(f"- {f}")
+
+        if alignment:
+            st.markdown(f"**{t('ensemble_adjacent', lang)}:**")
+            for f in alignment:
+                st.markdown(f"- {f}")
+
+        if contradiction:
+            st.markdown(f"**{t('ensemble_challenges', lang)}:**")
+            for f in contradiction:
+                st.markdown(f"- {f}")
+
+
+def _render_latest_ensemble():
+    """Render the ensemble for the most recent report (loaded from DB)."""
+    conn = db.get_connection()
+    latest = conn.execute("SELECT id FROM daily_reports ORDER BY timestamp DESC LIMIT 1").fetchone()
+    conn.close()
+    if latest:
+        ensemble_data = db.get_ensemble_by_report(latest["id"])
+        if ensemble_data:
+            _render_ensemble(ensemble_data)
+
+
 def analysis_page():
     st.title(t("page_analysis_title", lang))
 
@@ -269,9 +329,37 @@ def analysis_page():
 
     if st.button(t("btn_analyze", lang), type="primary", use_container_width=True, disabled=(n == 0)):
         with st.spinner(t("spinner_analyzing", lang)):
-            report, contextual_instructions, research_data = asyncio.run(analyze_and_report(lang=lang))
+            report, contextual_instructions, research_data, context_stats, calibration_results, report_id = asyncio.run(analyze_and_report(lang=lang))
         st.success(t("analysis_done", lang))
         st.markdown(report)
+
+        # Show context stats
+        if context_stats:
+            included = context_stats.get("conversations_included", 0)
+            truncated = context_stats.get("conversations_truncated", 0)
+            ctx_line = t("context_included", lang).format(included=included)
+            if truncated > 0:
+                ctx_line += t("context_truncated", lang).format(truncated=truncated)
+            st.caption(ctx_line)
+
+        # Calibration note
+        if calibration_results and calibration_results.get("insights_weakened", 0) > 0:
+            n_cal = calibration_results["insights_weakened"]
+            st.caption(t("calibration_note", lang).format(n=n_cal))
+
+        # Show which maps influenced this analysis
+        active_maps = db.get_all_active_maps()
+        active_types = [mt for mt, inputs in active_maps.items() if any(inp.get("content") for inp in inputs)]
+        if active_types:
+            map_names = {
+                "cognitive": t("map_cognitive", lang),
+                "behavioral": t("map_behavioral", lang),
+                "personal": t("map_personal", lang),
+            }
+            maps_str = ", ".join(map_names[mt] for mt in active_types)
+        else:
+            maps_str = t("maps_none", lang)
+        st.caption(f"**{t('maps_used_label', lang)}:** {maps_str}")
 
         if contextual_instructions:
             st.markdown("---")
@@ -282,6 +370,27 @@ def analysis_page():
 
         # Research Agent Discoveries
         _render_research_discoveries(research_data)
+
+        # Domain Specialist Analysis
+        if report_id:
+            ensemble_data = db.get_ensemble_by_report(report_id)
+            _render_ensemble(ensemble_data)
+        
+        # Ready Prompts Usage Guide
+        if "###" in report and (lang == "ar" or "Ready Prompts" in report):
+            st.markdown("---")
+            if lang == "ar":
+                st.info("""**كيف تستخدم هذه المخرجات:**
+١. الصق تعليمات السياق في بداية محادثة جديدة مع أي نموذج ذكاء اصطناعي
+٢. اختر البرومبت الأهم لك والصقه في نفس المحادثة
+٣. يمكنك استخدام عدة برومبتات في نفس المحادثة بالترتيب
+٤. كل برومبت يفتح زاوية مختلفة — اختر حسب أولويتك""")
+            else:
+                st.info("""**How to use these outputs:**
+1. Paste the Contextual Instructions at the start of a new conversation with any AI model
+2. Choose the most relevant prompt and paste it next
+3. You can use multiple prompts in the same conversation in order
+4. Each prompt opens a different angle — choose by priority""")
     elif n == 0:
         st.warning(t("no_pending", lang))
 
@@ -299,44 +408,49 @@ def analysis_page():
         if sel:
             path = os.path.join(REPORTS_DIR, sel)
             with open(path, "r", encoding="utf-8") as f:
-                st.markdown(f.read())
+                report_text = f.read()
+                st.markdown(report_text)
 
-            # Load paired contextual instructions and research by matching on date prefix
             date_prefix = sel.replace("report_", "").replace(".md", "")
             conn = db.get_connection()
-            ci_row = conn.execute(
-                "SELECT ci.content FROM contextual_instructions ci "
-                "JOIN daily_reports dr ON ci.report_id = dr.id "
-                "WHERE dr.date = ?",
-                (date_prefix,)
-            ).fetchone()
-
-            rr_row = conn.execute(
-                "SELECT rr.discoveries, rr.research_summary FROM research_results rr "
-                "JOIN daily_reports dr ON rr.report_id = dr.id "
-                "WHERE dr.date = ?",
-                (date_prefix,)
-            ).fetchone()
+            dr_row = conn.execute("SELECT id FROM daily_reports WHERE date = ?", (date_prefix,)).fetchone()
             conn.close()
 
-            if ci_row:
-                st.markdown("---")
-                st.subheader(t("contextual_instructions_heading", lang))
-                st.caption(t("contextual_instructions_tip", lang))
-                with st.container(border=True):
-                    st.code(ci_row["content"], language="markdown")
+            if dr_row:
+                report_id = dr_row["id"]
+                
+                # Contextual Instructions
+                ci_data = db.get_instruction_by_report(report_id)
+                if ci_data:
+                    st.markdown("---")
+                    st.subheader(t("contextual_instructions_heading", lang))
+                    st.caption(t("contextual_instructions_tip", lang))
+                    with st.container(border=True):
+                        st.code(ci_data["content"], language="markdown")
 
-            if rr_row:
-                import json
-                try:
-                    past_discoveries = json.loads(rr_row["discoveries"]) if rr_row["discoveries"] else []
-                except Exception:
-                    past_discoveries = []
-                past_research = {
-                    "discoveries": past_discoveries,
-                    "research_summary": rr_row["research_summary"] or ""
-                }
-                _render_research_discoveries(past_research)
+                # Research
+                research_data = db.get_research_by_report(report_id)
+                _render_research_discoveries(research_data)
+
+                # Domain Ensemble
+                ensemble_data = db.get_ensemble_by_report(report_id)
+                _render_ensemble(ensemble_data)
+
+                # Usage Guide
+                if "###" in report_text and (lang == "ar" or "Ready Prompts" in report_text):
+                    st.markdown("---")
+                    if lang == "ar":
+                        st.info("""**كيف تستخدم هذه المخرجات:**
+١. الصق تعليمات السياق في بداية محادثة جديدة مع أي نموذج ذكاء اصطناعي
+٢. اختر البرومبت الأهم لك والصقه في نفس المحادثة
+٣. يمكنك استخدام عدة برومبتات في نفس المحادثة بالترتيب
+٤. كل برومبت يفتح زاوية مختلفة — اختر حسب أولويتك""")
+                    else:
+                        st.info("""**How to use these outputs:**
+1. Paste the Contextual Instructions at the start of a new conversation with any AI model
+2. Choose the most relevant prompt and paste it next
+3. You can use multiple prompts in the same conversation in order
+4. Each prompt opens a different angle — choose by priority""")
 
 
 # ══════════════════════════════════════════════════════════════
@@ -357,12 +471,21 @@ def insights_page():
         "pattern":       t("type_pattern", lang),
     }
 
-    filter_options = [t("filter_all", lang)] + list(type_labels.values())
+    filter_options = (
+        [t("filter_all", lang)]
+        + list(type_labels.values())
+        + ["──"]
+        + [t("filter_flagged", lang), t("filter_pending", lang)]
+    )
     chosen = st.selectbox(t("filter_type", lang), filter_options, key="insights_filter")
 
     # Reverse map for filtering
     reverse_map = {v: k for k, v in type_labels.items()}
-    if chosen != t("filter_all", lang):
+    if chosen == t("filter_flagged", lang):
+        insights = [i for i in insights if i.get("calibration_status") == "flagged"]
+    elif chosen == t("filter_pending", lang):
+        insights = [i for i in insights if i.get("calibration_status") == "pending_confirmation"]
+    elif chosen != t("filter_all", lang) and chosen != "──":
         raw_type = reverse_map.get(chosen, chosen)
         insights = [i for i in insights if i["insight_type"] == raw_type]
 
@@ -378,6 +501,16 @@ def insights_page():
 
         with st.expander(f"{i['content'][:80]}...", expanded=False):
             st.markdown(header, unsafe_allow_html=True)
+
+            # Calibration badge
+            cal_status = i.get("calibration_status") or "active"
+            if cal_status == "flagged":
+                st.markdown(f'<span class="badge-flagged">{t("flagged_badge", lang)}</span>', unsafe_allow_html=True)
+            elif cal_status == "pending_confirmation":
+                st.markdown(f'<span class="badge-pending">{t("pending_badge", lang)}</span>', unsafe_allow_html=True)
+            elif cal_status == "weakened":
+                st.markdown(f'<span class="badge-weakened">{t("weakened_badge", lang)}</span>', unsafe_allow_html=True)
+
             st.markdown(f"**{t('label_content_insight', lang)}:** {i['content']}")
             
             if i.get("why_it_matters"):
@@ -414,7 +547,190 @@ def insights_page():
 
 
 # ══════════════════════════════════════════════════════════════
-# PAGE 4 — SETTINGS
+# PAGE 4 — MAPS
+# ══════════════════════════════════════════════════════════════
+def _map_status_indicator(map_inputs: list, total_fields: int):
+    """Return status label for a map section."""
+    filled = sum(1 for m in map_inputs if m.get("content"))
+    if filled == 0:
+        return t("maps_status_empty", lang), "#6b7280"
+    elif filled >= total_fields:
+        return t("maps_status_complete", lang), "#22c55e"
+    else:
+        return t("maps_status_partial", lang), "#f59e0b"
+
+
+def _get_saved_value(map_inputs: list, input_type: str) -> str:
+    for m in map_inputs:
+        if m["input_type"] == input_type:
+            return m.get("content", "") or ""
+    return ""
+
+
+def _get_last_updated(map_inputs: list) -> str:
+    if not map_inputs:
+        return ""
+    dates = [m.get("last_updated", "") for m in map_inputs if m.get("last_updated")]
+    if dates:
+        return max(dates)[:10]
+    return ""
+
+
+BEHAVIORAL_PROMPT = """I want you to analyze our conversation history together and give me a behavioral profile based on what you've observed. Focus on:
+1. How I make decisions — fast or deliberate, with full picture or incrementally
+2. What types of tasks I start but don't finish
+3. How I respond under pressure or uncertainty
+4. My recurring work patterns — what I repeat
+5. The difference between topics where I go deep vs shallow
+
+Be direct. No flattery. Give me specific observations with examples from our conversations.
+Format: one paragraph per point."""
+
+COMMUNICATION_PROMPT = """Based on our conversations, give me an honest analysis of my communication and thinking style. Cover:
+1. How I structure arguments — from framework to details or from details to framework
+2. My communication style — direct or cushioned, formal or informal
+3. How I respond to challenge or disagreement
+4. My core values as they appear in how I discuss things
+5. What makes me most effective in conversation
+
+Be specific. Use examples from our conversations.
+No generic personality descriptions.
+Format: one paragraph per point."""
+
+
+def maps_page():
+    st.title(t("page_maps_title", lang))
+
+    all_maps = db.get_all_active_maps()
+
+    # ── Status indicators ──
+    st.subheader(t("maps_status_heading", lang))
+    col1, col2, col3 = st.columns(3)
+    for col, map_key, map_name, field_count in [
+        (col1, "cognitive", t("map_cognitive", lang), 2),
+        (col2, "behavioral", t("map_behavioral", lang), 3),
+        (col3, "personal", t("map_personal", lang), 2),
+    ]:
+        inputs = all_maps.get(map_key, [])
+        status, color = _map_status_indicator(inputs, field_count)
+        col.markdown(
+            f'<div style="padding:10px;border-radius:8px;background:#1a1d27;'
+            f'border-left:3px solid {color};">'
+            f'<div style="font-weight:600;">{map_name}</div>'
+            f'<div style="color:{color};font-size:13px;">{status}</div>'
+            f'</div>',
+            unsafe_allow_html=True
+        )
+    st.markdown("---")
+
+    # Pre-load saved values
+    cog_inputs = all_maps.get("cognitive", [])
+    beh_inputs = all_maps.get("behavioral", [])
+    per_inputs = all_maps.get("personal", [])
+
+    # ── COGNITIVE MAP ──
+    with st.expander(f"🧠 {t('map_cognitive', lang)} — {t('map_cognitive_desc', lang)}", expanded=True):
+        last_upd = _get_last_updated(cog_inputs)
+        if last_upd:
+            st.caption(t("maps_last_updated", lang).format(last_upd))
+
+        external_links = st.text_area(
+            t("maps_external_links", lang),
+            value=_get_saved_value(cog_inputs, "external_links"),
+            help=t("maps_external_links_help", lang),
+            height=68, key="map_ext_links"
+        )
+        knowledge_summary = st.text_area(
+            t("maps_knowledge_summary", lang),
+            value=_get_saved_value(cog_inputs, "knowledge_summary"),
+            help=t("maps_knowledge_summary_help", lang),
+            height=120, key="map_know_sum"
+        )
+
+    # ── BEHAVIORAL MAP ──
+    with st.expander(f"⚡ {t('map_behavioral', lang)} — {t('map_behavioral_desc', lang)}", expanded=False):
+        last_upd = _get_last_updated(beh_inputs)
+        if last_upd:
+            st.caption(t("maps_last_updated", lang).format(last_upd))
+
+        st.markdown(f"**{t('maps_inspire_qa', lang)}**")
+        inspire_answers = {}
+        for qi, qkey in enumerate(["maps_q1", "maps_q2", "maps_q3", "maps_q4", "maps_q5"], 1):
+            inspire_answers[qi] = st.text_area(
+                t(qkey, lang),
+                value=_get_saved_value(beh_inputs, f"inspire_q{qi}"),
+                height=68, key=f"map_inspire_{qi}"
+            )
+
+        ai_behavioral = st.text_area(
+            t("maps_ai_behavioral", lang),
+            value=_get_saved_value(beh_inputs, "ai_behavioral"),
+            help=t("maps_ai_behavioral_help", lang),
+            height=120, key="map_ai_beh"
+        )
+
+        with st.expander(t("maps_get_behavioral_prompt", lang)):
+            st.code(BEHAVIORAL_PROMPT, language="text")
+
+    # ── PERSONAL MAP ──
+    with st.expander(f"🎯 {t('map_personal', lang)} — {t('map_personal_desc', lang)}", expanded=False):
+        last_upd = _get_last_updated(per_inputs)
+        if last_upd:
+            st.caption(t("maps_last_updated", lang).format(last_upd))
+
+        personality = st.text_area(
+            t("maps_personality_result", lang),
+            value=_get_saved_value(per_inputs, "personality"),
+            help=t("maps_personality_help", lang),
+            height=120, key="map_personality"
+        )
+        comm_style = st.text_area(
+            t("maps_comm_style", lang),
+            value=_get_saved_value(per_inputs, "comm_style"),
+            help=t("maps_comm_style_help", lang),
+            height=120, key="map_comm_style"
+        )
+
+        with st.expander(t("maps_get_comm_prompt", lang)):
+            st.code(COMMUNICATION_PROMPT, language="text")
+
+    # ── SAVE ──
+    st.markdown("---")
+    if st.button(t("btn_save_maps", lang), type="primary", use_container_width=True):
+        saved_count = 0
+        # Cognitive
+        if external_links.strip():
+            db.upsert_map_input("cognitive", "external_links", external_links.strip())
+            saved_count += 1
+        if knowledge_summary.strip():
+            db.upsert_map_input("cognitive", "knowledge_summary", knowledge_summary.strip())
+            saved_count += 1
+        # Behavioral
+        for qi in range(1, 6):
+            val = inspire_answers[qi].strip()
+            if val:
+                db.upsert_map_input("behavioral", f"inspire_q{qi}", val)
+                saved_count += 1
+        if ai_behavioral.strip():
+            db.upsert_map_input("behavioral", "ai_behavioral", ai_behavioral.strip())
+            saved_count += 1
+        # Personal
+        if personality.strip():
+            db.upsert_map_input("personal", "personality", personality.strip())
+            saved_count += 1
+        if comm_style.strip():
+            db.upsert_map_input("personal", "comm_style", comm_style.strip())
+            saved_count += 1
+
+        if saved_count > 0:
+            st.success(t("maps_saved", lang))
+        else:
+            st.warning(t("maps_status_empty", lang))
+        st.rerun()
+
+
+# ══════════════════════════════════════════════════════════════
+# PAGE 5 — SETTINGS
 # ══════════════════════════════════════════════════════════════
 def settings_page():
     st.title(t("page_settings_title", lang))
@@ -435,7 +751,7 @@ def settings_page():
         if st.button(t("btn_clear", lang), type="primary"):
             # 1. Clear all DB tables
             conn = db.get_connection()
-            for tbl in ["conversations", "canonical_units", "insights", "daily_reports", "contextual_instructions", "research_results"]:
+            for tbl in ["conversations", "canonical_units", "insights", "daily_reports", "contextual_instructions", "research_results", "user_maps", "domain_ensemble_results", "calibration_log"]:
                 conn.execute(f"DELETE FROM {tbl}")
             conn.commit()
             conn.close()
@@ -457,5 +773,7 @@ elif page == t("nav_analysis", lang):
     analysis_page()
 elif page == t("nav_insights", lang):
     insights_page()
+elif page == t("nav_maps", lang):
+    maps_page()
 elif page == t("nav_settings", lang):
     settings_page()

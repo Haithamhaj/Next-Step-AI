@@ -10,20 +10,21 @@ from config import DB_PATH, REPORTS_DIR
 import database.db as db
 import agents.memory as memory
 from orchestrator import analyze_and_report
-import anthropic.resources.messages
+import openai.resources.chat.completions
 
 RAW_INSIGHT_TEXT = None
 RAW_RESEARCH_DATA = None
 
-_orig_msg_create = anthropic.resources.messages.Messages.create
+_orig_completions_create = openai.resources.chat.completions.Completions.create
 
-def mock_msg_create(self, *args, **kwargs):
+def mock_completions_create(self, *args, **kwargs):
     global RAW_INSIGHT_TEXT
     from config import INSIGHT_MODEL
     try:
-        res = _orig_msg_create(self, *args, **kwargs)
+        res = _orig_completions_create(self, *args, **kwargs)
         if kwargs.get("model") == INSIGHT_MODEL:
-            RAW_INSIGHT_TEXT = res.content[0].text
+            # For OpenAI, the response is nested differently
+            RAW_INSIGHT_TEXT = res.choices[0].message.content
         return res
     except Exception as e:
         traceback.print_exc()
@@ -57,7 +58,7 @@ async def run_tests():
     print("TEST 3 & 4: Analyze All Pending & Verify Report")
     print("══════════════════════════════════════════════════")
     RAW_INSIGHT_TEXT = None
-    with patch("anthropic.resources.messages.Messages.create", mock_msg_create):
+    with patch("openai.resources.chat.completions.Completions.create", mock_completions_create):
         with patch("agents.research.research_topic") as mock_research:
             mock_research.return_value = {
                 "discoveries": [
@@ -72,7 +73,7 @@ async def run_tests():
                 "research_summary": "Found W3C RDF-star standard relevant to Temporal Knowledge Graphs",
                 "search_queries_used": ["temporal knowledge graph standards", "TKG tools"]
             }
-            report, contextual_instructions, research_data = await analyze_and_report()
+            report, contextual_instructions, research_data, context_stats, calibration_results, report_id = await analyze_and_report()
 
     print("── Insight Agent RAW JSON Response ──")
     print(RAW_INSIGHT_TEXT)
@@ -85,7 +86,13 @@ async def run_tests():
 
     print("\n── Research Data ──")
     print(research_data)
-    
+
+    print("\n── Context Stats ──")
+    print(context_stats)
+
+    print("\n── Calibration Results ──")
+    print(calibration_results)
+
     print("\n══════════════════════════════════════════════════")
     print("TEST 5: Verify conversations marked as analyzed")
     print("══════════════════════════════════════════════════")
@@ -105,10 +112,10 @@ async def run_tests():
     print(f"Pending before new analysis: {len(pending_before)} (should be 1)")
     
     RAW_INSIGHT_TEXT = None
-    with patch("anthropic.resources.messages.Messages.create", mock_msg_create):
+    with patch("openai.resources.chat.completions.Completions.create", mock_completions_create):
         with patch("agents.research.research_topic") as mock_research:
             mock_research.return_value = {"discoveries": [], "research_summary": "No relevant findings", "search_queries_used": []}
-            report2, ci2, research2 = await analyze_and_report()
+            report2, ci2, research2, context_stats2, calibration_results2, report_id2 = await analyze_and_report()
 
     print("\n── Insight Agent RAW JSON for Round 2 ──")
     print(RAW_INSIGHT_TEXT)
@@ -121,7 +128,10 @@ async def run_tests():
 
     print("\n── Research Data Round 2 ──")
     print(research2)
-    
+
+    print("\n── Calibration Results Round 2 ──")
+    print(calibration_results2)
+
     pending_after = memory.get_pending_conversations()
     print(f"\nRemaining Pending at end: {len(pending_after)}")
 

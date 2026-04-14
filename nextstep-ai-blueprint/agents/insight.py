@@ -1,7 +1,7 @@
 import os
 import json
-import anthropic
-from config import ANTHROPIC_API_KEY, INSIGHT_MODEL, PROMPTS_DIR
+from openai import OpenAI
+from config import OPENAI_API_KEY, INSIGHT_MODEL, PROMPTS_DIR
 
 def load_prompt(filename: str) -> str:
     path = os.path.join(PROMPTS_DIR, filename)
@@ -10,8 +10,8 @@ def load_prompt(filename: str) -> str:
     with open(path, "r", encoding="utf-8") as f:
         return f.read()
 
-def analyze_conversations(conversations_block: str, profile: str, lang: str = "ar", discoveries: list = None) -> dict:
-    if not ANTHROPIC_API_KEY or "-key-" in ANTHROPIC_API_KEY:
+def analyze_conversations(conversations_block: str, profile: str, lang: str = "ar", discoveries: list = None, ensemble_output: dict = None) -> dict:
+    if not OPENAI_API_KEY or "-key-" in OPENAI_API_KEY:
         pass 
 
     system_prompt_raw = load_prompt("insight_session_system.txt")
@@ -39,26 +39,45 @@ def analyze_conversations(conversations_block: str, profile: str, lang: str = "a
             discoveries_lines.append(line)
         discoveries_block = "\n".join(discoveries_lines)
         user_prompt += f"\n\n## External Discoveries (Research Agent findings)\nThese are tools, standards, and concepts found outside the conversations that are directly relevant to the topic. Use these to generate ALIGNMENT findings — do not ignore them.\n\n{discoveries_block}\n"
+
+    # Inject domain ensemble observations if provided
+    if ensemble_output:
+        completion = ensemble_output.get("completion_findings", [])
+        alignment = ensemble_output.get("alignment_findings", [])
+        contradiction = ensemble_output.get("contradiction_findings", [])
+
+        completion_text = "\n".join(f"- {f}" for f in completion) if completion else "None identified"
+        alignment_text = "\n".join(f"- {f}" for f in alignment) if alignment else "None identified"
+        contradiction_text = "\n".join(f"- {f}" for f in contradiction) if contradiction else "None identified"
+
+        user_prompt += (
+            f"\n\n## Domain Specialist Observations\n"
+            f"The following observations were made by domain specialists\n"
+            f"before your analysis. Use them to inform your findings —\n"
+            f"especially to validate or challenge what you find.\n"
+            f"Do not simply repeat them. Use them as signals.\n\n"
+            f"### Missing Elements (Completion specialists):\n{completion_text}\n\n"
+            f"### Adjacent Elements (Alignment specialists):\n{alignment_text}\n\n"
+            f"### Challenges (Contradiction specialists):\n{contradiction_text}\n"
+        )
     
-    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+    client = OpenAI(api_key=OPENAI_API_KEY)
     last_error = "unknown"
     
     for _ in range(2): 
         try:
-            res = client.messages.create(
+            res = client.chat.completions.create(
                 model=INSIGHT_MODEL,
-                max_tokens=4000,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
                 temperature=0.3,
-                system=system_prompt,
-                messages=[{"role": "user", "content": user_prompt}]
+                max_completion_tokens=4000,
+                response_format={"type": "json_object"}
             )
-            text = res.content[0].text
+            text = res.choices[0].message.content
             
-            if "```json" in text:
-                text = text.split("```json")[1].split("```")[0]
-            elif "```" in text:
-                text = text.split("```")[1].split("```")[0]
-                
             data = json.loads(text.strip())
             
             if "has_insight" not in data or "findings" not in data:

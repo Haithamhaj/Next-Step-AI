@@ -5,15 +5,23 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # API Keys
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+# ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY") (currently not used)
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 # Model Choices
-INSIGHT_MODEL = "claude-sonnet-4-20250514"
-SYNTHESIS_MODEL = "gpt-4o"
+INSIGHT_MODEL = "gpt-5.4"
+DIRECTOR_MODEL = "gpt-5.4"
+DOMAIN_MODEL = "gpt-5.4"
+PROMPT_ARCHITECT_MODEL = "gpt-5.4"
+RESEARCH_MODEL = "gpt-5.4"
+SYNTHESIS_MODEL = "gpt-5.4"
+CONTEXTUAL_INSTRUCTIONS_MODEL = "gpt-5.4"
+COMPRESSOR_MODEL = "gpt-5.4-mini"
+CALIBRATION_MODEL = "gpt-5.4-mini"
+
 BASE_MODEL_OPTIONS = {
     "Claude": {"provider": "anthropic", "model": "claude-sonnet-4-20250514"},
-    "GPT": {"provider": "openai", "model": "gpt-4o"},
+    "GPT": {"provider": "openai", "model": "gpt-5.4"},
 }
 
 # Observer Settings

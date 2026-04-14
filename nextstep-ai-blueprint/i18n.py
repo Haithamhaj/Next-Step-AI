@@ -88,6 +88,67 @@ TRANSLATIONS = {
         "type_inferential": "استنتاجي",
         "type_complementary": "تكميلي",
         "type_pattern": "نمط",
+
+        # Maps page
+        "nav_maps": "الخرائط",
+        "page_maps_title": "خرائط المستخدم",
+        "maps_status_heading": "حالة الخرائط",
+        "maps_status_complete": "مكتمل",
+        "maps_status_partial": "جزئي",
+        "maps_status_empty": "فارغ",
+        "map_cognitive": "الخريطة المعرفية",
+        "map_cognitive_desc": "ما تعرفه وما لا تعرفه",
+        "map_behavioral": "الخريطة السلوكية",
+        "map_behavioral_desc": "ما تفعله فعلياً",
+        "map_personal": "الخريطة الشخصية",
+        "map_personal_desc": "كيف تفكر وتتواصل",
+
+        "maps_external_links": "روابط خارجية",
+        "maps_external_links_help": "LinkedIn, GitHub, موقعك الشخصي",
+        "maps_knowledge_summary": "ملخص معرفتك",
+        "maps_knowledge_summary_help": "اكتب ملخصاً عن مجالات خبرتك وما تعرفه جيداً",
+
+        "maps_inspire_qa": "أسئلة INSPIRE",
+        "maps_q1": "كيف تتخذ القرارات عادةً — بسرعة أم بتأمل؟",
+        "maps_q2": "ما الذي يجعلك تتوقف عن مشروع أو فكرة؟",
+        "maps_q3": "كيف تتصرف تحت الضغط؟",
+        "maps_q4": "ما الأنماط التي تلاحظها في طريقة عملك؟",
+        "maps_q5": "ما الفرق بين مشاريعك الناجحة والمتوقفة؟",
+        "maps_ai_behavioral": "تحليل الذكاء الاصطناعي لسلوكك",
+        "maps_ai_behavioral_help": "الصق هنا تحليل الذكاء الاصطناعي لمحادثاتك السابقة",
+        "maps_get_behavioral_prompt": "احصل على هذا التحليل من نموذجك",
+
+        "maps_personality_result": "نتيجة تقييم الشخصية",
+        "maps_personality_help": "الصق نتيجتك من أي أداة: 16personalities, Big Five, DISC",
+        "maps_comm_style": "تحليل أسلوب تواصلك",
+        "maps_comm_style_help": "الصق هنا تحليل الذكاء الاصطناعي لأسلوب تواصلك",
+        "maps_get_comm_prompt": "احصل على هذا التحليل من نموذجك",
+
+        "btn_save_maps": "حفظ الخرائط",
+        "maps_saved": "تم حفظ الخرائط — ستؤثر على التحليل القادم",
+        "maps_last_updated": "آخر تحديث: {}",
+
+        "maps_used_label": "الخرائط المستخدمة",
+        "maps_none": "لا توجد",
+
+        # Context stats
+        "context_included": "السياق: {included} محادثة مُدرجة",
+        "context_truncated": "، {truncated} محادثة محذوفة",
+
+        # Domain Ensemble
+        "ensemble_heading": "تحليل وكلاء المجال",
+        "ensemble_missing": "عناصر مفقودة",
+        "ensemble_adjacent": "عناصر متجاورة",
+        "ensemble_challenges": "تحديات",
+        "ensemble_not_run": "لم يتم تشغيل وكلاء المجال في هذا التحليل",
+
+        # Calibration
+        "calibration_note": "المعايرة: تم تحديث {n} ملاحظة موجودة بناءً على أدلة جديدة.",
+        "flagged_badge": "⚠ مُعلّم",
+        "pending_badge": "؟ بحاجة لمراجعة",
+        "weakened_badge": "↓ مُضعّف",
+        "filter_flagged": "مُعلّم",
+        "filter_pending": "بحاجة لمراجعة",
     },
     "en": {
         # Navigation
@@ -178,6 +239,67 @@ TRANSLATIONS = {
         "type_inferential": "Inferential",
         "type_complementary": "Complementary",
         "type_pattern": "Pattern",
+
+        # Maps page
+        "nav_maps": "Maps",
+        "page_maps_title": "User Maps",
+        "maps_status_heading": "Map Status",
+        "maps_status_complete": "Complete",
+        "maps_status_partial": "Partial",
+        "maps_status_empty": "Empty",
+        "map_cognitive": "Cognitive Map",
+        "map_cognitive_desc": "What you know and don't know",
+        "map_behavioral": "Behavioral Map",
+        "map_behavioral_desc": "What you actually do",
+        "map_personal": "Personal Map",
+        "map_personal_desc": "How you think and communicate",
+
+        "maps_external_links": "External profile links",
+        "maps_external_links_help": "LinkedIn, GitHub, your personal website",
+        "maps_knowledge_summary": "Knowledge summary",
+        "maps_knowledge_summary_help": "Write a summary of your expertise and knowledge areas",
+
+        "maps_inspire_qa": "INSPIRE-style Q&A",
+        "maps_q1": "How do you usually make decisions — fast or deliberate?",
+        "maps_q2": "What makes you stop working on a project or idea?",
+        "maps_q3": "How do you behave under pressure?",
+        "maps_q4": "What patterns do you notice in how you work?",
+        "maps_q5": "What distinguishes your completed projects from abandoned ones?",
+        "maps_ai_behavioral": "AI behavioral analysis of your conversations",
+        "maps_ai_behavioral_help": "Paste the AI's behavioral analysis of your past conversations",
+        "maps_get_behavioral_prompt": "Get this analysis from your AI model",
+
+        "maps_personality_result": "Personality assessment result",
+        "maps_personality_help": "Paste your result from any tool: 16personalities, Big Five, DISC",
+        "maps_comm_style": "AI communication style analysis",
+        "maps_comm_style_help": "Paste the AI's analysis of your communication style",
+        "maps_get_comm_prompt": "Get this analysis from your AI model",
+
+        "btn_save_maps": "Save Maps",
+        "maps_saved": "Maps saved — they will enrich your next analysis",
+        "maps_last_updated": "Last updated: {}",
+
+        "maps_used_label": "Maps used",
+        "maps_none": "None",
+
+        # Context stats
+        "context_included": "Context: {included} conversations included",
+        "context_truncated": ", {truncated} truncated",
+
+        # Domain Ensemble
+        "ensemble_heading": "Domain Specialist Analysis",
+        "ensemble_missing": "Missing Elements",
+        "ensemble_adjacent": "Adjacent Elements",
+        "ensemble_challenges": "Challenges",
+        "ensemble_not_run": "Domain agents did not run in this analysis",
+
+        # Calibration
+        "calibration_note": "Calibration: {n} existing insight(s) updated based on new evidence.",
+        "flagged_badge": "⚠ Flagged",
+        "pending_badge": "? Needs Review",
+        "weakened_badge": "↓ Weakened",
+        "filter_flagged": "Flagged",
+        "filter_pending": "Pending Confirmation",
     }
 }
 

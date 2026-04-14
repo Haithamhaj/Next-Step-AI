@@ -22,10 +22,33 @@ You receive findings extracted from conversations. Each finding has:
 
 Produce a Markdown report with these sections:
 
-### [ar: النتائج الرئيسية | en: Key Findings]
-- Top 2-3 findings ranked by impact (only use the missing_angle and why_it_matters)
-- Include the confidence level and impact as subtle contextual tags.
-- Mention profile connections if they exist.
+### [ar: تناقضات ومخاطر | en: Contradictions & Risks]
+- List findings where the category is 'contradiction' (or type is 'inferential')
+- Highlight assumptions challenged, risks identified, or logical conflicts
+- If no such findings exist, skip this section entirely. Do not say "none found".
+- Include confidence, impact, and evidence for each.
+
+### [ar: ما ينقص الموضوع | en: What's Missing]
+- List findings where the category is 'completion' (or type is 'informational')
+- Highlight absent concepts, standards, data points, or methodologies
+- If no such findings exist, skip this section entirely. Do not say "none found".
+- Include confidence, impact, and profile connections if they exist.
+
+### [ar: ما يجاور الموضوع | en: Adjacent Angles]
+- List findings where the category is 'alignment' (or type is 'complementary')
+- Highlight tools, frameworks, or domains that should be connected
+- If no such findings exist, skip this section entirely. Do not say "none found".
+- Include confidence and suggested connections.
+
+### [ar: توصيات | en: Recommendations]
+- Provide maximum 3 specific, actionable next steps.
+- Each recommendation must be one sentence maximum.
+- Format: `[priority] Action statement`
+- Priorities:
+  - `[ar: عاجل | en: immediate]` -> for HIGH impact findings
+  - `[ar: قريباً | en: soon]` -> for MEDIUM impact findings
+  - `[ar: لاحقاً | en: later]` -> for LOW impact or ALIGNMENT findings
+- If no findings exist, skip this section entirely.
 
 ### [ar: أنماط ملاحظة | en: Patterns Noticed]
 - ONLY if a genuine pattern exists across 2+ conversations
@@ -33,16 +56,20 @@ Produce a Markdown report with these sections:
 
 ### [ar: بروبمتات جاهزة | en: Ready Prompts]
 - Include the `ready_prompt` from the findings.
-- Format as neat copy-pasteable markdown code blocks or quotes.
-- Do NOT list generic follow-up questions.
+- Format as neat copy-pasteable markdown code blocks.
 - Each Ready Prompt must be:
-  - A complete, paste-ready prompt (3-5 lines minimum)
-  - Specific to what was discussed today
-  - Designed to force a structured, non-surface answer
-  - Self-contained — works when pasted into any AI chat
+  - Concise (50-80 words).
+  - Focused on a specific task/question derived from the finding.
+  - Contain a direct reference to today's context.
+  - Include one specific constraint relevant to the task.
+  - Specify a unique output format.
+- DO NOT include:
+  - Role definitions (e.g., "Act as a...") as these are in Contextual Instructions.
+  - General constraints (e.g., "No generic advice").
+  - System or analysis references.
 
-Test: Could someone who didn't read today's conversations write this prompt?
-If yes → it's too generic. Do not include it or rewrite it.
+Test: Is this prompt redundant if used after the Contextual Instructions?
+If yes -> rewrite it to be a specific follow-up task.
 
 ### [ar: إحصائيات | en: Stats]
 - [ar: المحادثات المحللة | en: Conversations analyzed]: N

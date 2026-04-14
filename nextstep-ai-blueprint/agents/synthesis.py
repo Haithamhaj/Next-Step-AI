@@ -1,6 +1,7 @@
 import os
+import json
 from openai import OpenAI
-from config import OPENAI_API_KEY, SYNTHESIS_MODEL, PROMPTS_DIR
+from config import OPENAI_API_KEY, SYNTHESIS_MODEL, CONTEXTUAL_INSTRUCTIONS_MODEL, PROMPTS_DIR
 
 def load_prompt(filename: str) -> str:
     path = os.path.join(PROMPTS_DIR, filename)
@@ -13,20 +14,48 @@ def generate_report(analysis_data: dict, date_str: str, lang: str = "ar") -> str
     system_prompt_raw = load_prompt("synthesis_system.txt")
     system_prompt = system_prompt_raw.replace("{lang}", lang) if system_prompt_raw else "Format this data as a clean markdown report."
 
+    # Separate findings by category for the synthesis model
+    type_to_cat = {
+        "informational": "completion",
+        "complementary": "alignment",
+        "inferential": "contradiction",
+        "completion": "completion",
+        "alignment": "alignment",
+        "contradiction": "contradiction"
+    }
+    by_category = {"completion": [], "alignment": [], "contradiction": []}
+    for i in analysis_data.get('findings', []):
+        raw_cat = i.get('category') or i.get('type', '')
+        cat = type_to_cat.get(raw_cat.lower(), 'completion')
+        by_category[cat].append(i)
+
     insights_text = f"Summary: {analysis_data.get('session_summary', '')}\n\n"
-    for idx, i in enumerate(analysis_data.get('findings', [])):
-        insights_text += f"Finding {idx+1}:\n"
-        insights_text += f"- Type: {i.get('type')}\n"
-        insights_text += f"- Confidence: {i.get('confidence')} ({i.get('confidence_reason')})\n"
-        insights_text += f"- Impact: {i.get('impact')}\n"
-        insights_text += f"- Missing Angle: {i.get('missing_angle')}\n"
-        insights_text += f"- Why It Matters: {i.get('why_it_matters')}\n"
-        insights_text += f"- Ready Prompt: {i.get('ready_prompt')}\n"
-        insights_text += f"- Evidence: {i.get('evidence')}\n"
-        insights_text += f"- Profile Connection: {i.get('profile_connection')}\n"
-        insights_text += f"- Conversations Referenced: {i.get('conversations_referenced')}\n\n"
+
+    cat_labels = {
+        "contradiction": ("CONTRADICTION — Risks & Challenges", "missing_angle", "why_it_matters"),
+        "completion": ("COMPLETION — What's Missing", "missing_angle", "why_it_matters"),
+        "alignment": ("ALIGNMENT — Adjacent Angles", "missing_angle", "why_it_matters"),
+    }
+
+    # Only include categories that have findings
+    for cat_key, (cat_header, field1, field2) in cat_labels.items():
+        cat_findings = by_category[cat_key]
+        if cat_findings:
+            insights_text += f"=== {cat_header} ===\n"
+            for idx, i in enumerate(cat_findings):
+                insights_text += f"  Finding {idx+1}:\n"
+                insights_text += f"  - Type: {i.get('type')}\n"
+                insights_text += f"  - Category: {cat_key}\n"
+                insights_text += f"  - Confidence: {i.get('confidence')} ({i.get('confidence_reason')})\n"
+                insights_text += f"  - Impact: {i.get('impact')}\n"
+                insights_text += f"  - Missing Angle: {i.get('missing_angle')}\n"
+                insights_text += f"  - Why It Matters: {i.get('why_it_matters')}\n"
+                insights_text += f"  - Ready Prompt: {i.get('ready_prompt')}\n"
+                insights_text += f"  - Evidence: {i.get('evidence')}\n"
+                insights_text += f"  - Profile Connection: {i.get('profile_connection')}\n"
+                insights_text += f"  - Conversations Referenced: {i.get('conversations_referenced')}\n\n"
         
-    if not analysis_data.get('has_insight') or not analysis_data.get('findings'):
+    if not analysis_data.get('has_insight') or not any(by_category.values()):
         return "لا توجد نتائج مهمة للتحليل — No significant findings."
         
     client = OpenAI(api_key=OPENAI_API_KEY)
@@ -42,7 +71,7 @@ def generate_report(analysis_data: dict, date_str: str, lang: str = "ar") -> str
                 {"role": "user", "content": f"Date: {date_str}\n\nAnalysis Data:\n{insights_text}"}
             ],
             temperature=0.5,
-            max_tokens=2000
+            max_completion_tokens=2000
         )
         return res.choices[0].message.content
     except Exception as e:
@@ -59,7 +88,7 @@ FALLBACK_CONTEXTUAL_INSTRUCTIONS = (
 
 
 def generate_contextual_instructions(
-    classified_findings: dict,
+    analysis_data: dict,
     profile: str,
     lang: str,
     topic_summary: str
@@ -70,52 +99,58 @@ Your job: produce a short, paste-ready setup block the user
 can place at the start of a new AI conversation before using
 their Ready Prompts.
 
-The Contextual Instructions must:
-1. Define the role the AI should take for this topic
-2. Set 3-5 behavioral rules that prevent surface-level answers
-3. Specify the output format the AI should follow
-4. Include one anti-drift rule: what the AI should NOT do
+The Contextual Instructions MUST contain all 6 elements, built strictly from the actual findings provided:
 
-Format:
-A single paste-ready block — not a list of instructions about
-how to write instructions. The user pastes this directly.
+1. ROLE: Define a specific expert role derived from the DOMINANT category of findings:
+   - Most are CONTRADICTION -> Act as a critical reviewer and devil's advocate who challenges assumptions.
+   - Most are COMPLETION -> Act as a domain specialist who identifies and fills structural gaps.
+   - Most are ALIGNMENT -> Act as a practical expert in adjacent tools and system integration.
+   Include 2-3 specific domain qualifications mentioned in the findings.
+2. GOAL: One clear sentence stating what this session aims to achieve, derived from the top finding's 'why_it_matters'.
+3. CONTEXT: 2-3 bullet points with specifics from the actual findings (facts, tools, or gaps discovered). Never a summary of the topic.
+4. CONSTRAINTS: 3+ rules including:
+   - "Do not provide generic or surface-level advice."
+   - A constraint derived from the top CONTRADICTION finding (if any): e.g., "Do not validate [X] without challenging [Y] first."
+5. OUTPUT FORMAT: Specify the structure every answer must follow, derived from finding categories:
+   - If CONTRADICTION exists: "Structure every answer: Risk | Evidence | Mitigation"
+   - If COMPLETION exists: "Structure every answer: Gap | Why it matters | How to close it"
+   - If ALIGNMENT exists: "Structure every answer: Tool/Domain | Connection | First Step"
+6. TONE: Direct, concise, expert-level. No flattery. Challenge assumptions.
 
-Length: 100-150 words maximum. Concise and direct.
+Format: A single paste-ready block. No intro/outro text.
+Length: 100-150 words maximum.
+Language: {lang}."""
 
-Rules:
-- Make it specific to the topic discussed — not generic
-- Base the role on what the topic actually needs
-- Base the behavioral rules on what was missing in the analysis
-- Do not reference Next-Step AI or the analysis process
-- Write in the user's selected language: {lang}
-- Do not praise the user
-- Do not add explanatory text outside the paste-ready block"""
-
-    findings = classified_findings.get("findings", [])
+    findings = analysis_data.get("findings", [])
     findings_summary = ""
+    categories = {"completion": 0, "alignment": 0, "contradiction": 0}
+    type_to_cat = {"informational": "completion", "complementary": "alignment", "inferential": "contradiction"}
+    
     for idx, f in enumerate(findings):
+        cat = f.get("category") or type_to_cat.get(f.get("type", ""), "completion")
+        categories[cat.lower()] = categories.get(cat.lower(), 0) + 1
+        
         ma = (f.get("missing_angle") or "")[:300]
         wm = (f.get("why_it_matters") or "")[:300]
         if ma or wm:
-            findings_summary += f"{idx+1}. {ma}"
-            if wm:
-                findings_summary += f" — {wm}"
-            findings_summary += "\n"
+            findings_summary += f"- [{cat.upper()}] {ma} (Why it matters: {wm})\n"
 
     if not findings_summary:
         findings_summary = "No specific findings available."
 
     profile_summary = (profile or "")[:500]
 
-    user_prompt = f"""Topic summary: {topic_summary}
-
-Key findings from analysis:
+    user_prompt = f"""Findings from analysis (USE THESE TO BUILD THE INSTRUCTIONS):
 {findings_summary}
+
+Dominant Category Counts: {categories}
 
 User profile context:
 {profile_summary}
 
-Generate the Contextual Instructions block."""
+Topic summary (for context only): {topic_summary}
+
+Generate the paste-ready Contextual Instructions block."""
 
     client = OpenAI(api_key=OPENAI_API_KEY)
 
@@ -124,13 +159,13 @@ Generate the Contextual Instructions block."""
             raise ValueError("No valid API key")
 
         res = client.chat.completions.create(
-            model=SYNTHESIS_MODEL,
+            model=CONTEXTUAL_INSTRUCTIONS_MODEL,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt}
             ],
             temperature=0.3,
-            max_tokens=1500
+            max_completion_tokens=1500
         )
         return res.choices[0].message.content
     except Exception:

@@ -1,7 +1,6 @@
-import anthropic
-from config import ANTHROPIC_API_KEY
-
-COMPRESSOR_MODEL = "claude-3-haiku-20240307"
+import os
+from openai import OpenAI
+from config import OPENAI_API_KEY, COMPRESSOR_MODEL
 
 COMPRESSOR_PROMPT = """Extract exactly 4 elements from this AI response. Be concise — max 2 lines each.
 
@@ -21,24 +20,26 @@ Format:
 Respond in the same language as the input. Be extremely concise."""
 
 def compress_ai_response(response_text: str) -> str:
-    # Compress responses with more than 30 words (lowered from 100 to handle many short-ish responses)
+    # Compress responses with more than 30 words
     if len(response_text.split()) < 30:
         return response_text
         
-    if not ANTHROPIC_API_KEY or "-key-" in ANTHROPIC_API_KEY:
+    if not OPENAI_API_KEY or "-key-" in OPENAI_API_KEY:
         return response_text
         
-    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+    client = OpenAI(api_key=OPENAI_API_KEY)
     
     try:
-        result = client.messages.create(
+        res = client.chat.completions.create(
             model=COMPRESSOR_MODEL,
-            max_tokens=300,
-            temperature=0,
-            system=COMPRESSOR_PROMPT,
-            messages=[{"role": "user", "content": response_text}]
+            messages=[
+                {"role": "system", "content": COMPRESSOR_PROMPT},
+                {"role": "user", "content": response_text}
+            ],
+            max_completion_tokens=300,
+            temperature=0
         )
-        return result.content[0].text
+        return res.choices[0].message.content
     except Exception as e:
         print(f"Compression failed: {e}")
         return response_text

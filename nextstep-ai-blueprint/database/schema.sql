@@ -40,7 +40,9 @@ CREATE TABLE IF NOT EXISTS insights (
     ready_prompt    TEXT,
     confidence      TEXT,
     confidence_reason TEXT,
-    profile_connection TEXT
+    profile_connection TEXT,
+    calibration_status TEXT DEFAULT 'active'
+        CHECK(calibration_status IN ('active','weakened','flagged','pending_confirmation'))
 );
 
 CREATE TABLE IF NOT EXISTS daily_reports (
@@ -70,4 +72,37 @@ CREATE TABLE IF NOT EXISTS research_results (
     discoveries     TEXT,
     search_queries  TEXT,
     research_summary TEXT
+);
+
+CREATE TABLE IF NOT EXISTS user_maps (
+    id            TEXT PRIMARY KEY,
+    map_type      TEXT NOT NULL CHECK(map_type IN ('cognitive','behavioral','personal')),
+    input_type    TEXT NOT NULL,
+    content       TEXT,
+    source_url    TEXT,
+    added_at      TEXT NOT NULL,
+    last_updated  TEXT NOT NULL,
+    is_active     INTEGER DEFAULT 1
+);
+
+CREATE TABLE IF NOT EXISTS domain_ensemble_results (
+    id                    TEXT PRIMARY KEY,
+    report_id             TEXT,
+    timestamp             TEXT NOT NULL,
+    domains_identified    TEXT,
+    agent_count           INTEGER,
+    completion_findings   TEXT,
+    alignment_findings    TEXT,
+    contradiction_findings TEXT
+);
+
+CREATE TABLE IF NOT EXISTS calibration_log (
+    id                    TEXT PRIMARY KEY,
+    report_id             TEXT,
+    timestamp             TEXT NOT NULL,
+    insights_reviewed     INTEGER,
+    insights_weakened     INTEGER,
+    calibration_summary   TEXT,
+    weakened_details      TEXT,
+    stale_map_inputs      TEXT
 );
